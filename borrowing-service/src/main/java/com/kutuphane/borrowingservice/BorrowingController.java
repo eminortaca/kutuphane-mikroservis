@@ -1,43 +1,39 @@
 package com.kutuphane.borrowingservice;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import java.time.LocalDate;
+
 import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping("/api/borrowings")
 @RequiredArgsConstructor
 public class BorrowingController {
 
-    private final BorrowingRepository borrowingRepository;
-    private final BookClient bookClient; // Feign Client'ı enjekte ettik!
+    private final BorrowingService borrowingService;
 
+    // 1. Kitap ödünç al (Parametreler @Validated ile doğrulanır)
     @PostMapping
-    public Borrowing borrowBook(@RequestParam Long bookId, @RequestParam String borrowerName) {
-
-        // 1. ADIM: Book-Service'e (8081) git ve kitabı kontrol et!
-        BookDto book = bookClient.getBookById(bookId);
-
-        if (book.getStock() <= 0) {
-            throw new RuntimeException("Üzgünüz, '" + book.getTitle() + "' kitabının stoğu kalmamış!");
-        }
-
-        // 2. ADIM: Book-Service'e (8081) git ve kitabın stoğunu 1 düşür!
-        bookClient.decreaseStock(bookId);
-
-        // 3. ADIM: Kendi veritabanımıza (8082 - borrowingdb) ödünç alma kaydını yaz!
-        Borrowing borrowing = new Borrowing();
-        borrowing.setBookId(book.getId());
-        borrowing.setBookTitle(book.getTitle());
-        borrowing.setBorrowerName(borrowerName);
-        borrowing.setBorrowDate(LocalDate.now());
-
-        return borrowingRepository.save(borrowing);
+    public Borrowing borrowBook(
+            @RequestParam @NotNull(message = "Kitap ID belirtilmelidir!") @Positive(message = "Kitap ID pozitif bir sayı olmalıdır!") Long bookId,
+            @RequestParam @NotBlank(message = "Ödünç alan kişinin adı boş olamaz!") String borrowerName) {
+        return borrowingService.borrowBook(bookId, borrowerName);
     }
 
+    // 2. Kitap iade et
+    @PutMapping("/{id}/return")
+    public Borrowing returnBook(@PathVariable Long id) {
+        return borrowingService.returnBook(id);
+    }
+
+    // 3. Tüm ödünç kayıtlarını listele
     @GetMapping
     public List<Borrowing> getAllBorrowings() {
-        return borrowingRepository.findAll();
+        return borrowingService.getAllBorrowings();
     }
 }

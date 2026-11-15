@@ -14,8 +14,12 @@ public class Borrowing {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long bookId;      // Sadece kitabın ID'sini tutuyoruz (Foreign Key değil!)
-    private String bookTitle; // Sorgularda kolaylık olsun diye kitabın adını da kaydedelim
+    private Long bookId;         // Sadece kitabın ID'sini tutuyoruz (Foreign Key değil!)
+    private String bookTitle;    // Sorgularda kolaylık olsun diye kitabın adını da kaydedelim
     private String borrowerName; // Ödünç alan kişinin adı
     private LocalDate borrowDate;
+    private LocalDate returnDate; // İade edildiği tarih (henüz iade edilmediyse null)
+
+    @Enumerated(EnumType.STRING)
+    private BorrowingStatus status; // BORROWED veya RETURNED
 }

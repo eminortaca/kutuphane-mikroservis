@@ -6,7 +6,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 
 // Artık localhost veya 8081 portu YOK! Sadece servisin adı (book-service) var!
-@FeignClient(name = "book-service", path = "/api/books")
+// fallbackFactory: Book-Service çökerse / yavaşlarsa / devre kesici açılırsa ne yapılacağını söyler.
+@FeignClient(name = "book-service", path = "/api/books", fallbackFactory = BookClientFallbackFactory.class)
 public interface BookClient {
 
     @GetMapping("/{id}")
@@ -14,4 +15,8 @@ public interface BookClient {
 
     @PutMapping("/{id}/decrease-stock")
     BookDto decreaseStock(@PathVariable("id") Long id);
+
+    // TELAFİ: Ödünç kaydı yazılamazsa düşürülen stoğu geri vermek için
+    @PutMapping("/{id}/increase-stock")
+    BookDto increaseStock(@PathVariable("id") Long id);
 }

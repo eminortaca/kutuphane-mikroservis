@@ -5,9 +5,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 
-// Şimdilik URL'i sabit (localhost:8081) veriyoruz.
-// Bir sonraki fazda Eureka kurduğumuzda bu url="..." kısmını sileceğiz!
-@FeignClient(name = "book-service", url = "http://localhost:8081/api/books")
+// Artık localhost veya 8081 portu YOK! Sadece servisin adı (book-service) var!
+@FeignClient(name = "book-service", path = "/api/books")
 public interface BookClient {
 
     @GetMapping("/{id}")

@@ -15,9 +15,7 @@ public class BookController {
 
     // 1. Yeni kitap ekle
     @PostMapping
-    public Book createBook(@RequestBody Book book) {
-        return bookRepository.save(book);
-    }
+    public Book createBook(@RequestBody Book book) {return bookRepository.save(book);}
 
     // 2. Tüm kitapları listele
     @GetMapping

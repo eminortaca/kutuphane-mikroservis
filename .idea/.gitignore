@@ -8,3 +8,14 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+# IntelliJ IDEA ayar dosyaları
+.idea/
+*.iml
+
+# Maven derleme klasörleri
+**/target/
+**/${project.build.directory}/
+
+# İşletim sistemi ve log dosyaları
+.DS_Store
+*.log

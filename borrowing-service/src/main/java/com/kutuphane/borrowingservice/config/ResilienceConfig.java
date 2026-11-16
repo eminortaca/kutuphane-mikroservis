@@ -1,5 +1,7 @@
-package com.kutuphane.borrowingservice;
+package com.kutuphane.borrowingservice.config;
 
+import com.kutuphane.borrowingservice.exception.BookNotFoundException;
+import com.kutuphane.borrowingservice.exception.OutOfStockException;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.timelimiter.TimeLimiterConfig;
 import org.springframework.cloud.circuitbreaker.resilience4j.Resilience4JCircuitBreakerFactory;

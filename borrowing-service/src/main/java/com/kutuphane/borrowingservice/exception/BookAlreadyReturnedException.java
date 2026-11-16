@@ -1,4 +1,4 @@
-package com.kutuphane.borrowingservice;
+package com.kutuphane.borrowingservice.exception;
 
 // Zaten iade edilmiş bir ödünç kaydı tekrar iade edilmeye çalışılırsa fırlatılır -> HTTP 409 (Conflict)
 public class BookAlreadyReturnedException extends RuntimeException {

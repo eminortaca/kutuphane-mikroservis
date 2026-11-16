@@ -1,5 +1,13 @@
-package com.kutuphane.borrowingservice;
+package com.kutuphane.borrowingservice.service;
 
+import com.kutuphane.borrowingservice.client.BookClient;
+import com.kutuphane.borrowingservice.dto.BookDto;
+import com.kutuphane.borrowingservice.entity.Borrowing;
+import com.kutuphane.borrowingservice.entity.BorrowingStatus;
+import com.kutuphane.borrowingservice.exception.BookAlreadyReturnedException;
+import com.kutuphane.borrowingservice.exception.BorrowingFailedException;
+import com.kutuphane.borrowingservice.exception.BorrowingNotFoundException;
+import com.kutuphane.borrowingservice.repository.BorrowingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

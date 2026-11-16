@@ -1,5 +1,9 @@
-package com.kutuphane.borrowingservice;
+package com.kutuphane.borrowingservice.client;
 
+import com.kutuphane.borrowingservice.dto.BookDto;
+import com.kutuphane.borrowingservice.exception.BookNotFoundException;
+import com.kutuphane.borrowingservice.exception.BookServiceUnavailableException;
+import com.kutuphane.borrowingservice.exception.OutOfStockException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;

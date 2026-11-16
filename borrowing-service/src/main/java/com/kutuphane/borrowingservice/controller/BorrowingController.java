@@ -1,5 +1,7 @@
-package com.kutuphane.borrowingservice;
+package com.kutuphane.borrowingservice.controller;
 
+import com.kutuphane.borrowingservice.entity.Borrowing;
+import com.kutuphane.borrowingservice.service.BorrowingService;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;

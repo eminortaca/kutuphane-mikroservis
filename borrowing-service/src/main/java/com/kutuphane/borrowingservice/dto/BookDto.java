@@ -1,4 +1,4 @@
-package com.kutuphane.borrowingservice;
+package com.kutuphane.borrowingservice.dto;
 
 import lombok.*;
 

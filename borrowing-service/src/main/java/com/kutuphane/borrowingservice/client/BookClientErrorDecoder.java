@@ -1,5 +1,8 @@
-package com.kutuphane.borrowingservice;
+package com.kutuphane.borrowingservice.client;
 
+import com.kutuphane.borrowingservice.exception.BookNotFoundException;
+import com.kutuphane.borrowingservice.exception.BookServiceUnavailableException;
+import com.kutuphane.borrowingservice.exception.OutOfStockException;
 import feign.Response;
 import feign.codec.ErrorDecoder;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,4 @@
-package com.kutuphane.borrowingservice;
+package com.kutuphane.borrowingservice.exception;
 
 // Book-Service kapalı, çok yavaş veya devre kesici (circuit breaker) açıksa fırlatılır -> HTTP 503
 public class BookServiceUnavailableException extends RuntimeException {

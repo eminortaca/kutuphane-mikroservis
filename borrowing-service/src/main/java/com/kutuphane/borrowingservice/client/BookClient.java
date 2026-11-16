@@ -1,5 +1,6 @@
-package com.kutuphane.borrowingservice;
+package com.kutuphane.borrowingservice.client;
 
+import com.kutuphane.borrowingservice.dto.BookDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

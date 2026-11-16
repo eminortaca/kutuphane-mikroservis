@@ -1,4 +1,4 @@
-package com.kutuphane.borrowingservice;
+package com.kutuphane.borrowingservice.exception;
 
 import java.time.LocalDateTime;
 

@@ -505,3 +505,4 @@ Hem `book-service` hem de `borrowing-service` üzerinde `@RestControllerAdvice` 
 | **`409`** | `Conflict` | Kitabın stoğu `0` iken ödünç alınmaya çalışıldığında (`OutOfStockException`) veya zaten iade edilmiş bir kayıt tekrar iade edilmeye çalışıldığında (`BookAlreadyReturnedException`). |
 | **`500`** | `Internal Server Error` | Ödünç veya iade kaydı veritabanına yazılamayıp Saga telafi adımı çalıştırıldığında (`BorrowingFailedException`). |
 | **`503`** | `Service Unavailable` | `book-service` kapalı olduğunda, zaman aşımına uğradığında veya **Circuit Breaker (Devre Kesici)** açık olduğunda (`BookServiceUnavailableException`). |
+.

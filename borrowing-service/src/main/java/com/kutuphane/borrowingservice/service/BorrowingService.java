@@ -27,17 +27,15 @@ public class BorrowingService {
     // Kitap ödünç alma işlemi
     public Borrowing borrowBook(Long bookId, String borrowerName) {
 
-        // 1. ADIM: Book-Service'e (8081) git ve kitabı getir!
-        // Kitap yoksa -> BookNotFoundException (404), Book-Service kapalıysa -> BookServiceUnavailableException (503)
-        BookDto book = bookClient.getBookById(bookId);
+        // 1. ADIM: Book-Service'e git ve kitabın stoğunu 1 düşür!
+        // Bu tek çağrı hem "kitap var mı" hem "stok var mı" kontrolünü yapar ve güncel kitabı döner:
+        //   Kitap yoksa       -> BookNotFoundException (404)
+        //   Stok yoksa        -> OutOfStockException (409)  (kontrol Book-Service'te atomik yapılır)
+        //   Servis kapalıysa  -> BookServiceUnavailableException (503)
+        // Eskiden önce ayrıca "kitabı getir" çağrısı yapıyorduk; gereksiz bir ağ çağrısıydı.
+        BookDto book = bookClient.decreaseStock(bookId);
 
-        // 2. ADIM: Book-Service'e git ve kitabın stoğunu 1 düşür!
-        // Stok kontrolünü artık BURADA yapmıyoruz. Çünkü biz "stok 1" gördükten sonra başka biri
-        // o son kitabı alabilir. Asıl kontrolü Book-Service atomik olarak yapıyor; stok yoksa
-        // OutOfStockException (409) fırlar.
-        bookClient.decreaseStock(bookId);
-
-        // 3. ADIM: Kendi veritabanımıza (8082 - borrowingdb) ödünç alma kaydını yaz!
+        // 2. ADIM: Kendi veritabanımıza (8082 - borrowingdb) ödünç alma kaydını yaz!
         Borrowing borrowing = new Borrowing();
         borrowing.setBookId(book.getId());
         borrowing.setBookTitle(book.getTitle());
@@ -49,7 +47,7 @@ public class BorrowingService {
         try {
             return borrowingRepository.save(borrowing);
         } catch (Exception ex) {
-            // 4. ADIM (TELAFİ): Stok düştü ama kayıt yazılamadı!
+            // 3. ADIM (TELAFİ): Stok düştü ama kayıt yazılamadı!
             // İki servis ayrı veritabanı kullandığı için tek bir @Transactional ile geri alamayız.
             // Bu yüzden Book-Service'e "stoğu geri ver" diyoruz (Saga desenindeki telafi adımı).
             log.error("Ödünç kaydı yazılamadı, stok geri veriliyor. bookId={}", bookId, ex);
@@ -62,8 +60,7 @@ public class BorrowingService {
     public Borrowing returnBook(Long borrowingId) {
 
         // 1. ADIM: Kendi veritabanımızda ödünç kaydını bul (yoksa 404)
-        Borrowing borrowing = borrowingRepository.findById(borrowingId)
-                .orElseThrow(() -> new BorrowingNotFoundException(borrowingId));
+        Borrowing borrowing = getBorrowingById(borrowingId);
 
         // 2. ADIM: Kitap zaten iade edilmişse stoğu ikinci kez artırmamak için 409 dön
         if (borrowing.getStatus() == BorrowingStatus.RETURNED) {
@@ -91,6 +88,12 @@ public class BorrowingService {
     // Tüm ödünç kayıtlarını listele
     public List<Borrowing> getAllBorrowings() {
         return borrowingRepository.findAll();
+    }
+
+    // ID'ye göre ödünç kaydı getir (yoksa 404)
+    public Borrowing getBorrowingById(Long borrowingId) {
+        return borrowingRepository.findById(borrowingId)
+                .orElseThrow(() -> new BorrowingNotFoundException(borrowingId));
     }
 
     // Düşürülen stoğu geri verir (ödünç alma başarısız olunca).

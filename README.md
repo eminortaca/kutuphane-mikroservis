@@ -58,7 +58,7 @@ flowchart TB
     Client -->|"HTTP İstekleri\n(/api/books/** veya /api/borrowings/**)"| GW
     GW -->|"lb://book-service"| BS
     GW -->|"lb://borrowing-service"| BRS
-    BRS -->|"OpenFeign + CircuitBreaker\n(GET /{id}, PUT /decrease-stock, PUT /increase-stock)"| BS
+    BRS -->|"OpenFeign + CircuitBreaker\n(PUT /internal/books/{id}/decrease-stock, PUT /internal/books/{id}/increase-stock)"| BS
 
     BS --- BookDB
     BRS --- BorrowDB
@@ -112,6 +112,8 @@ Mikroservis mimarisinde servislerin IP adresleri ve portları dinamik olarak de�
   * `lb://` (Load Balanced) öneki sayesinde Gateway, hedef servisin adresini Eureka'dan öğrenir ve birden fazla örnek varsa yükü aralarında paylaştırır.
 * **Global CORS Yapılandırması:** Tarayıcı tabanlı önyüz uygulamalarının (`http://localhost:*`) `GET`, `POST`, `PUT`, `DELETE`, `OPTIONS` isteklerini sorunsuz gönderebilmesi için CORS izinleri tanımlanmıştır.
 * **Actuator Desteği:** `/actuator/health`, `/actuator/info` ve `/actuator/gateway/routes` uç noktaları açıktır.
+* **İç Uç Noktaların Gizlenmesi:** Servisler arası uç noktalar (`/internal/**`) için bilerek **hiçbir rota tanımlanmamıştır**. Böylece stok değiştiren uç noktalar dış dünyadan (`8080`) çağrılamaz; `404` döner.
+* **`PreserveHostHeader` Filtresi:** İstemcinin `Host` başlığı servislere aynen iletilir. Böylece `201 Created` yanıtlarındaki `Location` adresi servisin kendi adresini değil, Gateway adresini (`http://localhost:8080/...`) gösterir.
 
 ---
 
@@ -125,7 +127,9 @@ Kütüphanedeki kitapların kaydını ve mevcut stok durumunu yönetir. Temiz ve
   * `decreaseStockIfAvailable(Long id)`: `UPDATE Book b SET b.stock = b.stock - 1 WHERE b.id = :id AND b.stock > 0` sorgusu ile stok kontrolünü ve stok düşürme işlemini **tek bir atomik SQL sorgusunda** gerçekleştirir.
   * `increaseStock(Long id)`: İade veya telafi durumlarında stoğu 1 artırır.
 * **`service/BookService.java`**: İş kurallarını barındırır. Kitap bulunamadığında `BookNotFoundException` (`404`), stok tükendiğinde `OutOfStockException` (`409`) fırlatır.
-* **`controller/BookController.java`**: `/api/books` altındaki REST uç noktalarını dış dünyaya ve diğer mikroservislere açar.
+* **`dto/BookResponse.java`**: İstemciye dönen kitap verisi (`record`). Entity dışarıya açılmaz; veritabanı yapısı ile API sözleşmesi birbirinden bağımsızdır.
+* **`controller/BookController.java`**: `/api/books` altındaki **dışa açık** uç noktalar (kitap ekleme, listeleme, getirme). Kitap ekleme `201 Created` + `Location` başlığı döner.
+* **`controller/InternalBookController.java`**: `/internal/books` altındaki **servisler arası** stok uç noktaları (`decrease-stock`, `increase-stock`). Yalnızca `borrowing-service` tarafından çağrılır; API Gateway üzerinden erişilemez.
 * **`exception/GlobalExceptionHandler.java`**: Servis genelinde fırlatılan özel istisnaları ve doğrulama hatalarını yakalayarak standart `ErrorResponse` JSON formatında döner.
 
 ---
@@ -136,7 +140,8 @@ Kullanıcıların kitap ödünç alma ve iade etme süreçlerini koordine eder.
 
 * **Bağımsız Veritabanı (`borrowingdb`):** Mikroservis prensiplerine uygun olarak `book-service`'in veritabanına doğrudan bağlanmaz ve `Book` tablosuna SQL `Foreign Key` kurmaz. Yalnızca `bookId` ve sorgu kolaylığı için `bookTitle` bilgisini kendi `borrowings` tablosunda saklar.
 * **Durum Takibi (`BorrowingStatus`):** Her ödünç kaydı `BORROWED` (Ödünç Alındı) veya `RETURNED` (İade Edildi) durumlarından birine sahiptir. Zaten iade edilmiş bir kitabın tekrar iade edilerek stoğu haksız yere artırması `BookAlreadyReturnedException` (`409 Conflict`) ile engellenir.
-* **`BookClient` (OpenFeign):** `@FeignClient(name = "book-service", path = "/api/books", fallbackFactory = BookClientFallbackFactory.class)` tanımıyla, hiçbir sabit IP veya port yazmadan Eureka üzerinden `book-service` ile HTTP üzerinden haberleşir.
+* **`BookClient` (OpenFeign):** `@FeignClient(name = "book-service", path = "/internal/books", fallbackFactory = BookClientFallbackFactory.class)` tanımıyla, hiçbir sabit IP veya port yazmadan Eureka üzerinden `book-service` ile HTTP üzerinden haberleşir. Ödünç alırken **tek bir** `decrease-stock` çağrısı yapılır: bu çağrı hem kitabın varlığını hem stoğu kontrol eder ve güncel kitap bilgisini döner (ayrı bir "kitabı getir" çağrısına gerek kalmaz).
+* **`dto/BorrowingResponse.java`**: İstemciye dönen ödünç kaydı verisi (`record`). Entity dışarıya açılmaz.
 * **`BookClientErrorDecoder`:** `book-service`'ten dönen `404` ve `409` HTTP yanıtlarını yakalar, JSON gövdesindeki Türkçe hata mesajını okur ve `BookNotFoundException` veya `OutOfStockException` olarak yeniden fırlatır.
 * **`ResilienceConfig` & `BookClientFallbackFactory`:** `book-service` çöktüğünde, yavaşladığında veya ağ hatası oluştuğunda devreye girerek sistemi korur ve kullanıcıya anlamlı bir `503 Service Unavailable` mesajı döner.
 
@@ -194,39 +199,29 @@ sequenceDiagram
     User->>GW: POST /api/borrowings?bookId=1&borrowerName=Ahmet
     GW->>BRS: İsteği Yönlendir (lb://borrowing-service)
     
-    BRS->>BS: 1. GET /api/books/1 (Feign Client)
-    BS->>BookDB: SELECT * FROM books WHERE id = 1
+    BRS->>BS: 1. PUT /internal/books/1/decrease-stock (Feign Client)
+    BS->>BookDB: SELECT (kitap var mı?) + UPDATE books SET stock = stock - 1 WHERE id = 1 AND stock > 0
     alt Kitap Bulunamadı
-        BookDB-->>BS: Boş sonuç
         BS-->>BRS: 404 Not Found
         BRS-->>GW: 404 Not Found (BookNotFoundException)
         GW-->>User: 404 Kitap bulunamadı
-    else Kitap Mevcut
-        BookDB-->>BS: Book nesnesi
-        BS-->>BRS: 200 OK (BookDto)
-    end
-
-    BRS->>BS: 2. PUT /api/books/1/decrease-stock
-    BS->>BookDB: UPDATE books SET stock = stock - 1 WHERE id = 1 AND stock > 0
-    alt Stok Yetersiz (updatedRows == 0)
-        BookDB-->>BS: 0 satır güncellendi
+    else Stok Yetersiz (updatedRows == 0)
         BS-->>BRS: 409 Conflict
         BRS-->>GW: 409 Conflict (OutOfStockException)
         GW-->>User: 409 Kitabın stoğu tükenmiş
     else Stok Başarıyla Düşürüldü
-        BookDB-->>BS: 1 satır güncellendi
-        BS-->>BRS: 200 OK
+        BS-->>BRS: 200 OK (güncel BookDto)
     end
 
-    BRS->>BorrowDB: 3. INSERT INTO borrowings (status = BORROWED)
+    BRS->>BorrowDB: 2. INSERT INTO borrowings (status = BORROWED)
     alt Kayıt Başarılı
         BorrowDB-->>BRS: Kaydedilen Borrowing nesnesi
-        BRS-->>GW: 200 OK (Borrowing JSON)
-        GW-->>User: 200 OK
+        BRS-->>GW: 201 Created (BorrowingResponse + Location)
+        GW-->>User: 201 Created
     else Veritabanı Hatası (Saga Telafi Adımı)
         BorrowDB-->>BRS: Exception!
         Note over BRS,BS: ⚠️ TELAFİ (Compensation): Düşürülen stok geri verilir
-        BRS->>BS: 4. PUT /api/books/1/increase-stock
+        BRS->>BS: 3. PUT /internal/books/1/increase-stock
         BS->>BookDB: UPDATE books SET stock = stock + 1 WHERE id = 1
         BRS-->>GW: 500 Internal Server Error (BorrowingFailedException)
         GW-->>User: 500 Ödünç alma kaydı oluşturulamadı, işlem geri alındı
@@ -277,8 +272,12 @@ kutuphane-mikroservis/
 │
 ├── book-service/                      # Kitap Mikroservisi (Port: 8081)
 │   ├── src/main/java/com/kutuphane/bookservice/
-│   │   ├── controller/BookController.java
-│   │   ├── dto/BookRequest.java
+│   │   ├── controller/
+│   │   │   ├── BookController.java           # Dışa açık: /api/books
+│   │   │   └── InternalBookController.java   # Servisler arası: /internal/books (stok)
+│   │   ├── dto/
+│   │   │   ├── BookRequest.java
+│   │   │   └── BookResponse.java
 │   │   ├── entity/Book.java
 │   │   ├── exception/
 │   │   │   ├── BookNotFoundException.java
@@ -294,25 +293,30 @@ kutuphane-mikroservis/
 │
 └── borrowing-service/                 # Ödünç Alma Mikroservisi (Port: 8082)
     ├── src/main/java/com/kutuphane/borrowingservice/
-    │   ├── BookAlreadyReturnedException.java
-    │   ├── BookClient.java
-    │   ├── BookClientErrorDecoder.java
-    │   ├── BookClientFallbackFactory.java
-    │   ├── BookDto.java
-    │   ├── BookNotFoundException.java
-    │   ├── BookServiceUnavailableException.java
-    │   ├── Borrowing.java
-    │   ├── BorrowingController.java
-    │   ├── BorrowingFailedException.java
-    │   ├── BorrowingNotFoundException.java
-    │   ├── BorrowingRepository.java
-    │   ├── BorrowingService.java
-    │   ├── BorrowingServiceApplication.java
-    │   ├── BorrowingStatus.java
-    │   ├── ErrorResponse.java
-    │   ├── GlobalExceptionHandler.java
-    │   ├── OutOfStockException.java
-    │   └── ResilienceConfig.java
+    │   ├── client/
+    │   │   ├── BookClient.java
+    │   │   ├── BookClientErrorDecoder.java
+    │   │   └── BookClientFallbackFactory.java
+    │   ├── config/ResilienceConfig.java
+    │   ├── controller/BorrowingController.java
+    │   ├── dto/
+    │   │   ├── BookDto.java
+    │   │   └── BorrowingResponse.java
+    │   ├── entity/
+    │   │   ├── Borrowing.java
+    │   │   └── BorrowingStatus.java
+    │   ├── exception/
+    │   │   ├── BookAlreadyReturnedException.java
+    │   │   ├── BookNotFoundException.java
+    │   │   ├── BookServiceUnavailableException.java
+    │   │   ├── BorrowingFailedException.java
+    │   │   ├── BorrowingNotFoundException.java
+    │   │   ├── ErrorResponse.java
+    │   │   ├── GlobalExceptionHandler.java
+    │   │   └── OutOfStockException.java
+    │   ├── repository/BorrowingRepository.java
+    │   ├── service/BorrowingService.java
+    │   └── BorrowingServiceApplication.java
     ├── src/main/resources/
     │   └── application.properties
     └── pom.xml
@@ -379,7 +383,7 @@ curl -X POST http://localhost:8080/api/books \
     "stock": 3
   }'
 ```
-* **Örnek Yanıt (`200 OK`):**
+* **Örnek Yanıt (`201 Created`):** *(Yanıt başlığında `Location: http://localhost:8080/api/books/1` döner.)*
 ```json
 {
   "id": 1,
@@ -401,17 +405,8 @@ curl -X GET http://localhost:8080/api/books
 curl -X GET http://localhost:8080/api/books/1
 ```
 
-#### 4. Kitap Stoğunu 1 Düşür
-* **Endpoint:** `PUT /api/books/{id}/decrease-stock`
-```bash
-curl -X PUT http://localhost:8080/api/books/1/decrease-stock
-```
-
-#### 5. Kitap Stoğunu 1 Artır
-* **Endpoint:** `PUT /api/books/{id}/increase-stock`
-```bash
-curl -X PUT http://localhost:8080/api/books/1/increase-stock
-```
+> [!NOTE]
+> Stok değiştiren uç noktalar (`PUT /internal/books/{id}/decrease-stock` ve `PUT /internal/books/{id}/increase-stock`) **servisler arası** kullanım içindir. API Gateway'de bu yol için rota tanımlı olmadığından `8080` üzerinden çağrılamaz (`404`). Stok yalnızca ödünç alma / iade işlemleriyle değişir.
 
 ---
 
@@ -426,7 +421,7 @@ curl -X PUT http://localhost:8080/api/books/1/increase-stock
 ```bash
 curl -X POST "http://localhost:8080/api/borrowings?bookId=1&borrowerName=Ahmet%20Yilmaz"
 ```
-* **Örnek Yanıt (`200 OK`):**
+* **Örnek Yanıt (`201 Created`):** *(Yanıt başlığında `Location: http://localhost:8080/api/borrowings/1` döner.)*
 ```json
 {
   "id": 1,
@@ -466,6 +461,12 @@ curl -X PUT http://localhost:8080/api/borrowings/1/return
 curl -X GET http://localhost:8080/api/borrowings
 ```
 
+#### 4. ID'ye Göre Ödünç Kaydı Getir
+* **Endpoint:** `GET /api/borrowings/{id}`
+```bash
+curl -X GET http://localhost:8080/api/borrowings/1
+```
+
 ---
 
 ## 🖥️ 9. Veritabanı ve İzleme Panelleri
@@ -477,6 +478,8 @@ Uygulama çalışırken aşağıdaki yönetim ve izleme ekranlarına tarayıcı 
 | **Eureka Dashboard** | `http://localhost:8761` | Kayıtlı tüm mikroservisleri ve durumlarını gösterir. |
 | **API Gateway Rotaları** | `http://localhost:8080/actuator/gateway/routes` | Gateway üzerinde tanımlı aktif yönlendirme kurallarını JSON olarak listeler. |
 | **API Gateway Sağlık Durumu** | `http://localhost:8080/actuator/health` | Gateway'in çalışma durumunu gösterir. |
+| **Book-Service Sağlık Durumu** | `http://localhost:8081/actuator/health` | Servis ve veritabanı (`db`) sağlık detaylarını gösterir. |
+| **Borrowing-Service Sağlık Durumu** | `http://localhost:8082/actuator/health` | Servis ve veritabanı (`db`) sağlık detaylarını gösterir. |
 | **Book-Service H2 Console** | `http://localhost:8081/h2-console` | **JDBC URL:** `jdbc:h2:mem:bookdb`<br>**User Name:** `sa`<br>**Password:** *(boş bırakın)* |
 | **Borrowing-Service H2 Console** | `http://localhost:8082/h2-console` | **JDBC URL:** `jdbc:h2:mem:borrowingdb`<br>**User Name:** `sa`<br>**Password:** *(boş bırakın)* |
 

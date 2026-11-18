@@ -19,11 +19,6 @@ public class BookClientFallbackFactory implements FallbackFactory<BookClient> {
     public BookClient create(Throwable cause) {
         return new BookClient() {
             @Override
-            public BookDto getBookById(Long id) {
-                throw toException(cause, "getBookById", id);
-            }
-
-            @Override
             public BookDto decreaseStock(Long id) {
                 throw toException(cause, "decreaseStock", id);
             }

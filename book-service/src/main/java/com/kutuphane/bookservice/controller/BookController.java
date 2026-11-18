@@ -1,14 +1,19 @@
 package com.kutuphane.bookservice.controller;
 
 import com.kutuphane.bookservice.dto.BookRequest;
-import com.kutuphane.bookservice.entity.Book;
+import com.kutuphane.bookservice.dto.BookResponse;
 import com.kutuphane.bookservice.service.BookService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 
+// DIŞA AÇIK (public) kitap uç noktaları. API Gateway yalnızca /api/books/** yolunu yönlendirir.
+// Stok değiştiren uç noktalar burada DEĞİL, InternalBookController'da (/internal/books) durur.
 @RestController
 @RequestMapping("/api/books")
 @RequiredArgsConstructor
@@ -16,34 +21,28 @@ public class BookController {
 
     private final BookService bookService;
 
-    // 1. Yeni kitap ekle (DTO + @Valid ile girdi doğrulaması yapılır)
+    // 1. Yeni kitap ekle -> 201 Created + Location: /api/books/{id}
     @PostMapping
-    public Book createBook(@Valid @RequestBody BookRequest request) {
-        return bookService.createBook(request);
+    public ResponseEntity<BookResponse> createBook(@Valid @RequestBody BookRequest request) {
+        BookResponse created = BookResponse.from(bookService.createBook(request));
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(created.id())
+                .toUri();
+        return ResponseEntity.created(location).body(created);
     }
 
     // 2. Tüm kitapları listele
     @GetMapping
-    public List<Book> getAllBooks() {
-        return bookService.getAllBooks();
+    public List<BookResponse> getAllBooks() {
+        return bookService.getAllBooks().stream()
+                .map(BookResponse::from)
+                .toList();
     }
 
-    // 3. ID'ye göre kitap getir (Borrowing-Service bunu çağıracak!)
+    // 3. ID'ye göre kitap getir
     @GetMapping("/{id}")
-    public Book getBookById(@PathVariable Long id) {
-        return bookService.getBookById(id);
-    }
-
-    // 4. Kitap ödünç alındığında stoğu 1 düşür (Borrowing-Service bunu da çağıracak!)
-    @PutMapping("/{id}/decrease-stock")
-    public Book decreaseStock(@PathVariable Long id) {
-        return bookService.decreaseStock(id);
-    }
-
-    // 5. Stoğu 1 artır (İADE veya TELAFİ işlemi)
-    // Kitap iade edildiğinde ya da ödünç kaydı yazılamadığında stoğu geri vermek için çağrılır.
-    @PutMapping("/{id}/increase-stock")
-    public Book increaseStock(@PathVariable Long id) {
-        return bookService.increaseStock(id);
+    public BookResponse getBookById(@PathVariable Long id) {
+        return BookResponse.from(bookService.getBookById(id));
     }
 }

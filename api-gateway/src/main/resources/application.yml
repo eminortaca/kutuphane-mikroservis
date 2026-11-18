@@ -8,7 +8,16 @@ spring:
     gateway:
       server:
         webflux:
+          # Istemcinin gonderdigi Host basligini (localhost:8080) servislere aynen ilet.
+          # Boylece servislerin urettigi adresler (orn. 201 Created -> Location) servisin kendi
+          # adresini (makine-adi:8081) degil, Gateway adresini (localhost:8080) gosterir.
+          default-filters:
+            - PreserveHostHeader
           routes:
+            # GUVENLIK NOTU: Servisler arasi uc noktalar (/internal/**) icin bilerek ROTA YOK.
+            # Ornegin book-service'teki /internal/books/{id}/decrease-stock disaridan 8080 uzerinden
+            # cagrilamaz (404). Sadece borrowing-service, Eureka uzerinden dogrudan cagirir.
+
             # /api/books/** -> Eureka'daki "book-service" orneklerine (load balanced)
             - id: book-service
               uri: lb://book-service

@@ -3,7 +3,7 @@
 Bu proje, modern **Spring Boot** ve **Spring Cloud** ekosistemini kullanarak geliştirilmiş, uçtan uca bir **Kütüphane Yönetim Sistemi** mikroservis uygulamasıdır. Sistem; kitap envanterinin yönetilmesi, stok takibi, kitap ödünç alma ve iade süreçlerini birbirinden bağımsız ancak uyumlu çalışan **4 ayrı mikroservis** üzerinden gerçekleştirir.
 
 Projede yalnızca temel CRUD işlemleri değil; gerçek dünya mikroservis mimarilerinde karşılaşılan **Servis Keşfi (Service Discovery)**, **Tek Giriş Noktası (API Gateway)**, **Yük Dengeleme (Load Balancing)**, **Devre Kesici (Circuit Breaker)**, **Dağıtık İşlem Telafisi (Saga Compensation)**, **Eşzamanlılık / Yarış Durumu Koruması (Atomic Stock Update)** ve **Merkezi Hata Yönetimi** gibi kritik mühendislik desenleri uygulanmıştır.
-
+.
 ---
 
 ## 🧭 İçindekiler

@@ -2,6 +2,8 @@ package com.kutuphane.borrowingservice.client;
 
 import com.kutuphane.borrowingservice.exception.BookNotFoundException;
 import com.kutuphane.borrowingservice.exception.BookServiceUnavailableException;
+import com.kutuphane.borrowingservice.exception.MemberNotFoundException;
+import com.kutuphane.borrowingservice.exception.MemberServiceUnavailableException;
 import com.kutuphane.borrowingservice.exception.OutOfStockException;
 import feign.Response;
 import feign.codec.ErrorDecoder;
@@ -11,11 +13,9 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.InputStream;
 
-// Feign, Book-Service'ten 4xx/5xx cevap gelince varsayılan olarak "FeignException" fırlatır
-// ve bu da bizde 500 olarak görünürdü. Bu sınıf HTTP kodunu bizim anlamlı hatalarımıza çevirir:
-//   404 -> BookNotFoundException
-//   409 -> OutOfStockException
-//   diğerleri -> BookServiceUnavailableException
+// Feign, diğer servislerden 4xx/5xx cevap gelince varsayılan olarak "FeignException" fırlatır.
+// Tek bir ErrorDecoder bean'i tüm Feign Client'lar için çalışır; methodKey üzerinden hangi istemci
+// olduğunu ayırt ederek HTTP kodlarını kendi anlamlı istisnalarımıza çeviriyoruz.
 @Component
 @RequiredArgsConstructor
 public class BookClientErrorDecoder implements ErrorDecoder {
@@ -24,8 +24,15 @@ public class BookClientErrorDecoder implements ErrorDecoder {
 
     @Override
     public Exception decode(String methodKey, Response response) {
-        // Book-Service'in gönderdiği Türkçe hata mesajını ({"message": "..."}) okuyup aynen aktarıyoruz
         String message = readMessage(response);
+
+        if (methodKey != null && methodKey.startsWith("MemberClient")) {
+            return switch (response.status()) {
+                case 404 -> new MemberNotFoundException(message != null ? message : "Üye bulunamadı!");
+                default -> new MemberServiceUnavailableException(
+                        "Member-Service hata döndürdü (HTTP " + response.status() + ")");
+            };
+        }
 
         return switch (response.status()) {
             case 404 -> new BookNotFoundException(message != null ? message : "Kitap bulunamadı!");

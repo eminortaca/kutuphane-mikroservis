@@ -29,6 +29,12 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    // Üye yok -> 404
+    @ExceptionHandler(MemberNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleMemberNotFound(MemberNotFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     // Stok bitti -> 409
     @ExceptionHandler(OutOfStockException.class)
     public ResponseEntity<ErrorResponse> handleOutOfStock(OutOfStockException ex) {
@@ -39,6 +45,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BookAlreadyReturnedException.class)
     public ResponseEntity<ErrorResponse> handleBookAlreadyReturned(BookAlreadyReturnedException ex) {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    // Ödünç alma / süre uzatma iş kuralı ihlali -> 409
+    @ExceptionHandler(BorrowingRuleViolationException.class)
+    public ResponseEntity<ErrorResponse> handleRuleViolation(BorrowingRuleViolationException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    // Geçersiz istek parametresi kombinasyonu -> 400
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     // İstek gövdesi doğrulama hatası (@Valid) -> 400
@@ -68,6 +86,12 @@ public class GlobalExceptionHandler {
     // Book-Service'e ulaşılamıyor -> 503
     @ExceptionHandler(BookServiceUnavailableException.class)
     public ResponseEntity<ErrorResponse> handleBookServiceUnavailable(BookServiceUnavailableException ex) {
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
+    // Member-Service'e ulaşılamıyor -> 503
+    @ExceptionHandler(MemberServiceUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleMemberServiceUnavailable(MemberServiceUnavailableException ex) {
         return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
 

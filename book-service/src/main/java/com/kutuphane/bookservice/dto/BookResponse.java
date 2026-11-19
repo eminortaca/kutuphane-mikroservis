@@ -9,9 +9,25 @@ public record BookResponse(
         Long id,
         String title,
         String author,
-        Integer stock
+        String isbn,
+        String category,
+        Integer publishYear,
+        Integer stock,
+        Integer totalCopies,
+        Integer availableCopies
 ) {
     public static BookResponse from(Book book) {
-        return new BookResponse(book.getId(), book.getTitle(), book.getAuthor(), book.getStock());
+        Integer total = book.getTotalCopies() != null ? book.getTotalCopies() : book.getStock();
+        return new BookResponse(
+                book.getId(),
+                book.getTitle(),
+                book.getAuthor(),
+                book.getIsbn(),
+                book.getCategory(),
+                book.getPublishYear(),
+                book.getStock(),
+                total,
+                book.getStock()
+        );
     }
 }

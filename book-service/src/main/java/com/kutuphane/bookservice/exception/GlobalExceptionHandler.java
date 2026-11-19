@@ -26,6 +26,18 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    // Aynı ISBN zaten mevcut -> 409
+    @ExceptionHandler(DuplicateIsbnException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateIsbn(DuplicateIsbnException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    // Kitap ödünçte kullanılıyor (silinemez / toplam kopya düşürülemez) -> 409
+    @ExceptionHandler(BookInUseException.class)
+    public ResponseEntity<ErrorResponse> handleBookInUse(BookInUseException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     // Girdi doğrulama hatası (@Valid) -> 400
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {

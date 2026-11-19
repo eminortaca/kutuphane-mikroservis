@@ -30,6 +30,12 @@ spring:
               predicates:
                 - Path=/api/borrowings/**
 
+            # /api/members/** -> Eureka'daki "member-service" orneklerine
+            - id: member-service
+              uri: lb://member-service
+              predicates:
+                - Path=/api/members/**
+
           # Tarayici tabanli bir frontend (React/Angular vb.) icin CORS
           globalcors:
             cors-configurations:

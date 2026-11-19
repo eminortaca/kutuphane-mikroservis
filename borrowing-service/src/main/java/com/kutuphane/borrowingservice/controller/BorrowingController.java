@@ -1,8 +1,8 @@
 package com.kutuphane.borrowingservice.controller;
 
 import com.kutuphane.borrowingservice.dto.BorrowingResponse;
+import com.kutuphane.borrowingservice.entity.BorrowingStatus;
 import com.kutuphane.borrowingservice.service.BorrowingService;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +26,11 @@ public class BorrowingController {
     @PostMapping
     public ResponseEntity<BorrowingResponse> borrowBook(
             @RequestParam @NotNull(message = "Kitap ID belirtilmelidir!") @Positive(message = "Kitap ID pozitif bir sayı olmalıdır!") Long bookId,
-            @RequestParam @NotBlank(message = "Ödünç alan kişinin adı boş olamaz!") String borrowerName) {
-        BorrowingResponse created = BorrowingResponse.from(borrowingService.borrowBook(bookId, borrowerName));
+            @RequestParam(required = false) @Positive(message = "Üye ID pozitif bir sayı olmalıdır!") Long memberId,
+            @RequestParam(required = false) String borrowerName,
+            @RequestParam(required = false) Integer durationDays) {
+        BorrowingResponse created = BorrowingResponse.from(
+                borrowingService.borrowBook(bookId, memberId, borrowerName, durationDays));
         URI location = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .path("/{id}")
                 .buildAndExpand(created.id())
@@ -41,15 +44,23 @@ public class BorrowingController {
         return BorrowingResponse.from(borrowingService.returnBook(id));
     }
 
-    // 3. Tüm ödünç kayıtlarını listele
+    // 3. Ödünç süresini uzat (max 1 kez)
+    @PutMapping("/{id}/renew")
+    public BorrowingResponse renewBorrowing(@PathVariable Long id) {
+        return BorrowingResponse.from(borrowingService.renewBorrowing(id));
+    }
+
+    // 4. Ödünç kayıtlarını listele / filtrele (?status=&memberId=)
     @GetMapping
-    public List<BorrowingResponse> getAllBorrowings() {
-        return borrowingService.getAllBorrowings().stream()
+    public List<BorrowingResponse> getAllBorrowings(
+            @RequestParam(required = false) BorrowingStatus status,
+            @RequestParam(required = false) Long memberId) {
+        return borrowingService.getAllBorrowings(status, memberId).stream()
                 .map(BorrowingResponse::from)
                 .toList();
     }
 
-    // 4. ID'ye göre ödünç kaydı getir
+    // 5. ID'ye göre ödünç kaydı getir
     @GetMapping("/{id}")
     public BorrowingResponse getBorrowingById(@PathVariable Long id) {
         return BorrowingResponse.from(borrowingService.getBorrowingById(id));

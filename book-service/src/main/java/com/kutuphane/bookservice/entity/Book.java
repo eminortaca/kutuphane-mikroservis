@@ -15,5 +15,13 @@ public class Book {
 
     private String title;
     private String author;
-    private Integer stock; // Kitaptan kaç adet kaldığını tutar
+
+    @Column(unique = true)
+    private String isbn;
+
+    private String category;
+    private Integer publishYear;
+
+    private Integer stock;       // Şu an rafta bulunan mevcut (ödünç verilebilir) kopya sayısı
+    private Integer totalCopies; // Kütüphanenin sahip olduğu toplam kopya sayısı
 }

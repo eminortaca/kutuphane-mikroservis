@@ -1,6 +1,7 @@
 package com.kutuphane.borrowingservice.config;
 
 import com.kutuphane.borrowingservice.exception.BookNotFoundException;
+import com.kutuphane.borrowingservice.exception.MemberNotFoundException;
 import com.kutuphane.borrowingservice.exception.OutOfStockException;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.timelimiter.TimeLimiterConfig;
@@ -31,9 +32,9 @@ public class ResilienceConfig {
                         .failureRateThreshold(50)                      // %50 ve üstü hata varsa sigorta atsın
                         .waitDurationInOpenState(Duration.ofSeconds(10)) // AÇIK durumda 10 sn bekle
                         .permittedNumberOfCallsInHalfOpenState(3)      // YARI AÇIK'ta 3 deneme isteğine izin ver
-                        // "Kitap yok" ve "stok yok" Book-Service'in arızası değil, normal iş kuralı.
+                        // "Kitap yok", "stok yok" ve "üye yok" arıza değil, normal iş kuralı.
                         // Bunlar sigortayı attırmasın:
-                        .ignoreExceptions(BookNotFoundException.class, OutOfStockException.class)
+                        .ignoreExceptions(BookNotFoundException.class, OutOfStockException.class, MemberNotFoundException.class)
                         .build())
                 .timeLimiterConfig(TimeLimiterConfig.custom()
                         .timeoutDuration(Duration.ofSeconds(4))        // 4 sn'den uzun süren çağrı başarısız sayılır

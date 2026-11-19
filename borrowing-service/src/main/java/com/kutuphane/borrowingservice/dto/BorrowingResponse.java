@@ -11,9 +11,13 @@ public record BorrowingResponse(
         Long id,
         Long bookId,
         String bookTitle,
+        Long memberId,
         String borrowerName,
         LocalDate borrowDate,
+        LocalDate dueDate,
         LocalDate returnDate,
+        Integer renewCount,
+        Double lateFee,
         BorrowingStatus status
 ) {
     public static BorrowingResponse from(Borrowing borrowing) {
@@ -21,9 +25,13 @@ public record BorrowingResponse(
                 borrowing.getId(),
                 borrowing.getBookId(),
                 borrowing.getBookTitle(),
+                borrowing.getMemberId(),
                 borrowing.getBorrowerName(),
                 borrowing.getBorrowDate(),
+                borrowing.getDueDate(),
                 borrowing.getReturnDate(),
+                borrowing.getRenewCount(),
+                borrowing.getLateFee(),
                 borrowing.getStatus()
         );
     }

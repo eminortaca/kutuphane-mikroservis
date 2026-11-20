@@ -95,6 +95,7 @@ flowchart TB
 * **Gözlemlenebilirlik:** Spring Boot Actuator
 * **Yardımcı Kütüphaneler:** Project Lombok, SLF4J Logging
 * **Derleme ve Paketleme:** Apache Maven (Kök Aggregator `pom.xml` + `mvnw` / Maven Wrapper)
+* **Konteynerleştirme:** Docker & Docker Compose (`Dockerfile` + `docker-compose.yml`)
 
 ---
 
@@ -395,6 +396,7 @@ kutuphane-mikroservis/
 │   └── pom.xml
 │
 └── pom.xml                            # Kök Aggregator POM (tüm modülleri tek komutla derler/test eder)
+└── docker-compose.yml                 # Tüm mikroservisleri tek komutla Docker'da ayağa kaldırır
 ```
 
 ---
@@ -404,8 +406,17 @@ kutuphane-mikroservis/
 ### Ön Gereksinimler
 * **Java 21 (JDK 21)** kurulu olmalıdır (`java -version` ile kontrol edebilirsiniz).
 * Her proje klasöründe **Maven Wrapper (`mvnw` / `mvnw.cmd`)** yer aldığı için bilgisayarınızda ayrıca Maven kurulu olmasına gerek yoktur.
+* *(Opsiyonel — Docker ile çalıştırmak için)* **Docker Desktop** kurulu olmalıdır.
 
-### ⚠️ Çalıştırma Sırası (Çok Önemli!)
+### 🐳 Seçenek A: Docker Compose ile Tek Komutla Çalıştırma (Önerilen)
+5 ayrı terminal açmak istemiyorsanız, önce tüm servislerin `.jar` paketlerini üretip ardından tek komutla sistemi ayağa kaldırabilirsiniz:
+```powershell
+.\mvnw.cmd clean package
+docker compose up --build
+```
+*(Kapatmak için `Ctrl + C` veya `docker compose down`.)*
+
+### ⚠️ Seçenek B: Yerelde Elle Çalıştırma Sırası (Çok Önemli!)
 Servislerin birbirini bulabilmesi için **mutlaka aşağıdaki sırayla** ayağa kaldırılması önerilir:
 
 #### 1. Adım: Discovery Server'ı Başlatın (`Port: 8761`)

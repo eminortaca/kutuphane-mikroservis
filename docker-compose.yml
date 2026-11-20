@@ -1,0 +1,46 @@
+services:
+  discovery-server:
+    build: ./discovery-server
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+
+  book-service:
+    build: ./book-service
+    container_name: book-service
+    ports:
+      - "8081:8081"
+    environment:
+      - EUREKA_URI=http://discovery-server:8761/eureka/
+    depends_on:
+      - discovery-server
+
+  member-service:
+    build: ./member-service
+    container_name: member-service
+    ports:
+      - "8083:8083"
+    environment:
+      - EUREKA_URI=http://discovery-server:8761/eureka/
+    depends_on:
+      - discovery-server
+
+  borrowing-service:
+    build: ./borrowing-service
+    container_name: borrowing-service
+    ports:
+      - "8082:8082"
+    environment:
+      - EUREKA_URI=http://discovery-server:8761/eureka/
+    depends_on:
+      - discovery-server
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_URI=http://discovery-server:8761/eureka/
+    depends_on:
+      - discovery-server

@@ -27,4 +27,23 @@ public class Borrowing {
 
     @Enumerated(EnumType.STRING)
     private BorrowingStatus status; // BORROWED, OVERDUE veya RETURNED
+
+    @Version
+    private Long version; // Aynı kaydın aynı anda iki istek tarafından ezilmesini önler (Optimistic Locking)
+
+    public Borrowing(Long id, Long bookId, String bookTitle, Long memberId, String borrowerName,
+                     LocalDate borrowDate, LocalDate dueDate, LocalDate returnDate,
+                     Integer renewCount, Double lateFee, BorrowingStatus status) {
+        this.id = id;
+        this.bookId = bookId;
+        this.bookTitle = bookTitle;
+        this.memberId = memberId;
+        this.borrowerName = borrowerName;
+        this.borrowDate = borrowDate;
+        this.dueDate = dueDate;
+        this.returnDate = returnDate;
+        this.renewCount = renewCount;
+        this.lateFee = lateFee;
+        this.status = status;
+    }
 }

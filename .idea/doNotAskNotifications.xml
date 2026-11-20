@@ -3,6 +3,7 @@
   <component name="DoNotAskProjectManager">
     <option name="idToDisplayName">
       <map>
+        <entry key="DatabaseConfigFileWatcher.found" value="New/updated database configurations found" />
         <entry key="vcs.commit.checks.failed" value="Commit and push checks failed" />
       </map>
     </option>

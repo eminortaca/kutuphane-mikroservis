@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.kutuphane</groupId>
+    <artifactId>kutuphane-mikroservis</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>kutuphane-mikroservis</name>
+    <description>Kutuphane Yonetim Sistemi - Mikroservis Mimarisi (Root Aggregator POM)</description>
+
+    <modules>
+        <module>discovery-server</module>
+        <module>api-gateway</module>
+        <module>book-service</module>
+        <module>member-service</module>
+        <module>borrowing-service</module>
+    </modules>
+</project>

@@ -38,6 +38,12 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    // İç servis gizli anahtarı eksik/hatalı -> 403
+    @ExceptionHandler(InternalAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleInternalAccessDenied(InternalAccessDeniedException ex) {
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
     // Girdi doğrulama hatası (@Valid) -> 400
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {

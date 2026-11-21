@@ -124,7 +124,11 @@ Mikroservis mimarisinde servislerin IP adresleri ve portları dinamik olarak de�
   * `lb://` (Load Balanced) öneki sayesinde Gateway, hedef servisin adresini Eureka'dan öğrenir ve birden fazla örnek varsa yükü aralarında paylaştırır.
 * **Global CORS Yapılandırması:** Tarayıcı tabanlı önyüz uygulamalarının (`http://localhost:*`) `GET`, `POST`, `PUT`, `DELETE`, `OPTIONS` isteklerini sorunsuz gönderebilmesi için CORS izinleri tanımlanmıştır.
 * **Actuator Desteği:** `/actuator/health`, `/actuator/info` ve `/actuator/gateway/routes` uç noktaları açıktır.
-* **İç Uç Noktaların Gizlenmesi:** Servisler arası uç noktalar (`/internal/**`) için bilerek **hiçbir rota tanımlanmamıştır**. Böylece stok değiştiren uç noktalar dış dünyadan (`8080`) çağrılamaz; `404` döner.
+* **İç Uç Noktaların Gizlenmesi:** Servisler arası uç noktalar (`/internal/**`) için bilerek **hiçbir rota tanımlanmamıştır**. Böylece stok değiştiren uç noktalar dış dünyadan (`8080`) çağrılamaz; `404` döner. Doğrudan `book-service` (`8081`) portuna gidilse bile `X-Internal-Secret` başlığı yoksa `403 Forbidden` ile reddedilir (`InternalAuthFeignInterceptor` yalnızca `borrowing-service`'in Feign çağrılarına bu başlığı ekler).
+* **Merkezi JWT Doğrulama ve Rol Yetkilendirme (`JwtAuthGatewayFilter` & `AuthController`):**
+  * `/api/auth/login` ile HS256 JWT token alınır; `/api/auth/me` ile aktif oturum bilgisi sorgulanır.
+  * `GET /api/books/**` (katalog okuma) herkese açıktır; diğer tüm `/api/**` uç noktaları için geçerli `Authorization: Bearer <token>` zorunludur (`401`).
+  * `ADMIN` ve `LIBRARIAN` tüm işlemlere yetkilidir; `MEMBER` yalnızca kitap listeler, kendi profilini (`GET /api/members/{kendiId}`) görür ve yalnızca kendi `memberId`'si adına ödünç alır (`403`).
 * **`PreserveHostHeader` Filtresi:** İstemcinin `Host` başlığı servislere aynen iletilir. Böylece `201 Created` yanıtlarındaki `Location` adresi servisin kendi adresini değil, Gateway adresini (`http://localhost:8080/...`) gösterir.
 
 ---
@@ -296,16 +300,28 @@ kutuphane-mikroservis/
 │
 ├── api-gateway/                       # Spring Cloud Gateway (Port: 8080)
 │   ├── src/main/java/com/kutuphane/apigateway/
+│   │   ├── security/
+│   │   │   ├── AuthController.java
+│   │   │   ├── InvalidTokenException.java
+│   │   │   ├── JwtAuthGatewayFilter.java
+│   │   │   ├── JwtService.java
+│   │   │   └── JwtUser.java
 │   │   └── ApiGatewayApplication.java
 │   ├── src/main/resources/
 │   │   └── application.yml
+│   ├── src/test/java/com/kutuphane/apigateway/
+│   │   ├── security/
+│   │   │   ├── AuthControllerTest.java
+│   │   │   ├── JwtAuthGatewayFilterTest.java
+│   │   │   └── JwtServiceTest.java
+│   │   └── ApiGatewayApplicationTests.java
 │   └── pom.xml
 │
 ├── book-service/                      # Kitap Mikroservisi (Port: 8081)
 │   ├── src/main/java/com/kutuphane/bookservice/
 │   │   ├── controller/
 │   │   │   ├── BookController.java           # Dışa açık: /api/books (CRUD + arama)
-│   │   │   └── InternalBookController.java   # Servisler arası: /internal/books (stok)
+│   │   │   └── InternalBookController.java   # Servisler arası: /internal/books (stok + secret)
 │   │   ├── dto/
 │   │   │   ├── BookRequest.java
 │   │   │   └── BookResponse.java
@@ -316,6 +332,7 @@ kutuphane-mikroservis/
 │   │   │   ├── DuplicateIsbnException.java
 │   │   │   ├── ErrorResponse.java
 │   │   │   ├── GlobalExceptionHandler.java
+│   │   │   ├── InternalAccessDeniedException.java
 │   │   │   └── OutOfStockException.java
 │   │   ├── repository/BookRepository.java
 │   │   ├── service/BookService.java
@@ -323,7 +340,9 @@ kutuphane-mikroservis/
 │   ├── src/main/resources/
 │   │   └── application.properties
 │   ├── src/test/java/com/kutuphane/bookservice/
-│   │   ├── controller/BookControllerTest.java
+│   │   ├── controller/
+│   │   │   ├── BookControllerTest.java
+│   │   │   └── InternalBookControllerTest.java
 │   │   ├── repository/BookRepositoryTest.java
 │   │   ├── service/BookServiceTest.java
 │   │   └── BookServiceApplicationTests.java
@@ -335,6 +354,7 @@ kutuphane-mikroservis/
 │   │   │   ├── BookClient.java
 │   │   │   ├── BookClientErrorDecoder.java
 │   │   │   ├── BookClientFallbackFactory.java
+│   │   │   ├── InternalAuthFeignInterceptor.java
 │   │   │   ├── MemberClient.java
 │   │   │   └── MemberClientFallbackFactory.java
 │   │   ├── config/ResilienceConfig.java
@@ -468,13 +488,40 @@ Kök dizindeki aggregator `pom.xml` sayesinde tüm mikroservislerin birim, repos
 
 Tüm istekler **API Gateway (`http://localhost:8080`)** üzerinden yapılır.
 
+### 🔐 Kimlik Doğrulama & Roller (`api-gateway`)
+
+`GET /api/books/**` dışındaki tüm API uç noktaları `Authorization: Bearer <TOKEN>` başlığı gerektirir:
+
+| Kullanıcı | Şifre | Rol | `memberId` | Yetki Kapsamı |
+| :--- | :--- | :--- | :---: | :--- |
+| `admin` | `admin123` | `ADMIN` | `-` | Tüm kitap, üye ve ödünç işlemleri |
+| `librarian` | `lib123` | `LIBRARIAN` | `-` | Tüm kitap, üye ve ödünç işlemleri |
+| `member1` | `member123` | `MEMBER` | `1` | Katalog okuma, `GET /api/members/1`, kendi `memberId=1` adına ödünç/iade/uzatma |
+| `member2` | `member123` | `MEMBER` | `2` | Katalog okuma, `GET /api/members/2`, kendi `memberId=2` adına ödünç/iade/uzatma |
+
+#### 1. Giriş Yap ve Token Al (`POST /api/auth/login`)
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}'
+```
+
+#### 2. Mevcut Kullanıcı Bilgisini Gör (`GET /api/auth/me`)
+```bash
+curl -X GET http://localhost:8080/api/auth/me \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+---
+
 ### 📘 Kitap İşlemleri (`book-service`)
 
 #### 1. Yeni Kitap Ekle
-* **Endpoint:** `POST /api/books`
+* **Endpoint:** `POST /api/books` *(Yalnızca `ADMIN` veya `LIBRARIAN`)*
 * **Örnek İstek:**
 ```bash
 curl -X POST http://localhost:8080/api/books \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Suç ve Ceza",
@@ -686,6 +733,8 @@ Uygulama çalışırken aşağıdaki yönetim ve izleme ekranlarına tarayıcı 
 | HTTP Kodu | Durum | Fırlatıldığı Senaryolar |
 | :---: | :--- | :--- |
 | **`400`** | `Bad Request` | Eksik veya geçersiz parametre/gövde gönderildiğinde (Örn: Boş kitap adı, geçersiz e-posta, negatif stok, `memberId` ve `borrowerName`'in ikisinin de boş olması). |
+| **`401`** | `Unauthorized` | Token gönderilmediğinde, imzası geçersiz olduğunda, süresi dolduğunda veya login bilgileri hatalı olduğunda (`InvalidTokenException`). |
+| **`403`** | `Forbidden` | Rol yetkisi yetersiz olduğunda (`MEMBER` kitap eklerse / başkasının adına ödünç alırsa) veya `/internal/books/**` ucuna `X-Internal-Secret` olmadan erişildiğinde (`InternalAccessDeniedException`). |
 | **`404`** | `Not Found` | İstenen `bookId`, `memberId` veya `borrowingId` veritabanında bulunamadığında (`BookNotFoundException`, `MemberNotFoundException`, `BorrowingNotFoundException`). |
 | **`409`** | `Conflict` | Stok tükenmesi (`OutOfStockException`), çift iade (`BookAlreadyReturnedException`), aynı ISBN/e-posta (`DuplicateIsbnException`, `DuplicateEmailException`), ödünçte kitap silme (`BookInUseException`), max 3 aktif ödünç / gecikmiş kitap / aynı kitabı tekrar alma / uzatma limiti (`BorrowingRuleViolationException`). |
 | **`500`** | `Internal Server Error` | Ödünç veya iade kaydı veritabanına yazılamayıp Saga telafi adımı çalıştırıldığında (`BorrowingFailedException`). |

@@ -59,3 +59,8 @@ management:
   endpoint:
     gateway:
       access: read-only
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:kutuphane-mikroservis-gizli-anahtar-en-az-32-karakter-2026}
+    expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}

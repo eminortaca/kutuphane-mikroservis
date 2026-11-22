@@ -1,0 +1,27 @@
+name: Java CI - Mikroservis Testleri
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kodu indir (Checkout)
+        uses: actions/checkout@v4
+
+      - name: Java 21 kur
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Tüm mikroservisleri derle ve test et
+        run: |
+          chmod +x mvnw
+          ./mvnw -B test

@@ -1,5 +1,7 @@
 # 📚 Kütüphane Yönetim Sistemi — Mikroservis Mimarisi
 
+[![Java CI - Mikroservis Testleri](https://github.com/eminortaca/kutuphane-mikroservis/actions/workflows/ci.yml/badge.svg)](https://github.com/eminortaca/kutuphane-mikroservis/actions/workflows/ci.yml)
+
 Bu proje, modern **Spring Boot** ve **Spring Cloud** ekosistemini kullanarak geliştirilmiş, uçtan uca bir **Kütüphane Yönetim Sistemi** mikroservis uygulamasıdır. Sistem; kitap envanterinin yönetilmesi, stok takibi, üye yönetimi, kitap ödünç alma, süre uzatma, gecikme/ceza takibi ve iade süreçlerini birbirinden bağımsız ancak uyumlu çalışan **5 ayrı mikroservis** üzerinden gerçekleştirir.
 
 Projede yalnızca temel CRUD işlemleri değil; gerçek dünya mikroservis mimarilerinde karşılaşılan **Servis Keşfi (Service Discovery)**, **Tek Giriş Noktası (API Gateway)**, **Yük Dengeleme (Load Balancing)**, **Devre Kesici (Circuit Breaker)**, **Dağıtık İşlem Telafisi (Saga Compensation)**, **Eşzamanlılık / Yarış Durumu Koruması (Atomic Stock Update)** ve **Merkezi Hata Yönetimi** gibi kritik mühendislik desenleri uygulanmıştır.
@@ -128,7 +130,7 @@ Mikroservis mimarisinde servislerin IP adresleri ve portları dinamik olarak de�
 * **Merkezi JWT Doğrulama ve Rol Yetkilendirme (`JwtAuthGatewayFilter` & `AuthController`):**
   * `/api/auth/login` ile HS256 JWT token alınır; `/api/auth/me` ile aktif oturum bilgisi sorgulanır.
   * `GET /api/books/**` (katalog okuma) herkese açıktır; diğer tüm `/api/**` uç noktaları için geçerli `Authorization: Bearer <token>` zorunludur (`401`).
-  * `ADMIN` ve `LIBRARIAN` tüm işlemlere yetkilidir; `MEMBER` yalnızca kitap listeler, kendi profilini (`GET /api/members/{kendiId}`) görür ve yalnızca kendi `memberId`'si adına ödünç alır (`403`).
+  * `ADMIN` ve `LIBRARIAN` tüm işlemlere yetkilidir; `MEMBER` yalnızca kitap listeler, kendi profilini (`GET /api/members/{kendiId}`) görür ve yalnızca kendi `memberId`'si adına ödünç alır / kendi ödünç kayıtlarını listeler (`GET /api/borrowings?memberId={kendiId}`, aksi halde `403`).
 * **`PreserveHostHeader` Filtresi:** İstemcinin `Host` başlığı servislere aynen iletilir. Böylece `201 Created` yanıtlarındaki `Location` adresi servisin kendi adresini değil, Gateway adresini (`http://localhost:8080/...`) gösterir.
 
 ---
@@ -496,8 +498,8 @@ Tüm istekler **API Gateway (`http://localhost:8080`)** üzerinden yapılır.
 | :--- | :--- | :--- | :---: | :--- |
 | `admin` | `admin123` | `ADMIN` | `-` | Tüm kitap, üye ve ödünç işlemleri |
 | `librarian` | `lib123` | `LIBRARIAN` | `-` | Tüm kitap, üye ve ödünç işlemleri |
-| `member1` | `member123` | `MEMBER` | `1` | Katalog okuma, `GET /api/members/1`, kendi `memberId=1` adına ödünç/iade/uzatma |
-| `member2` | `member123` | `MEMBER` | `2` | Katalog okuma, `GET /api/members/2`, kendi `memberId=2` adına ödünç/iade/uzatma |
+| `member1` | `member123` | `MEMBER` | `1` | Katalog okuma, `GET /api/members/1`, `GET /api/borrowings?memberId=1`, kendi `memberId=1` adına ödünç/iade/uzatma |
+| `member2` | `member123` | `MEMBER` | `2` | Katalog okuma, `GET /api/members/2`, `GET /api/borrowings?memberId=2`, kendi `memberId=2` adına ödünç/iade/uzatma |
 
 #### 1. Giriş Yap ve Token Al (`POST /api/auth/login`)
 ```bash

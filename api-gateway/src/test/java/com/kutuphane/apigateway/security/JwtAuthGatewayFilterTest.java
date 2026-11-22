@@ -110,6 +110,44 @@ class JwtAuthGatewayFilterTest {
         assertEquals("1", forwardedHeaders.getFirst("X-Auth-Member-Id"));
     }
 
+    @Test
+    void memberListingAllOrOtherBorrowings_shouldReturn403() {
+        String memberToken = jwtService.generateToken("member1", "MEMBER", 1L);
+
+        MockServerWebExchange allExchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/borrowings")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                        .build());
+        AtomicReference<ServerWebExchange> forwardedAll = new AtomicReference<>();
+        filter.filter(allExchange, passThroughChain(forwardedAll)).block();
+        assertNull(forwardedAll.get());
+        assertEquals(HttpStatus.FORBIDDEN, allExchange.getResponse().getStatusCode());
+
+        MockServerWebExchange otherExchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/borrowings?memberId=2")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                        .build());
+        AtomicReference<ServerWebExchange> forwardedOther = new AtomicReference<>();
+        filter.filter(otherExchange, passThroughChain(forwardedOther)).block();
+        assertNull(forwardedOther.get());
+        assertEquals(HttpStatus.FORBIDDEN, otherExchange.getResponse().getStatusCode());
+    }
+
+    @Test
+    void memberListingOwnBorrowings_shouldPassThrough() {
+        String memberToken = jwtService.generateToken("member1", "MEMBER", 1L);
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/borrowings?memberId=1")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                        .build());
+        AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
+
+        filter.filter(exchange, passThroughChain(forwarded)).block();
+
+        assertNotNull(forwarded.get());
+        assertNull(exchange.getResponse().getStatusCode());
+    }
+
     private GatewayFilterChain passThroughChain(AtomicReference<ServerWebExchange> captured) {
         return ex -> {
             captured.set(ex);

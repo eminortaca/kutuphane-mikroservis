@@ -123,14 +123,18 @@ public class JwtAuthGatewayFilter implements GlobalFilter, Ordered {
             return "Üye yönetimi yalnızca ADMIN veya LIBRARIAN yetkisindedir!";
         }
 
-        // MEMBER: Ödünç alırken sadece kendi memberId'si adına alabilir
+        // MEMBER: Ödünç alırken ve ödünç listelerken sadece kendi memberId'si ile işlem yapabilir
         if (path.equals("/api/borrowings") || path.startsWith("/api/borrowings/")) {
-            if (HttpMethod.POST.equals(method) && path.equals("/api/borrowings")) {
+            if (path.equals("/api/borrowings")
+                    && (HttpMethod.POST.equals(method) || HttpMethod.GET.equals(method))) {
                 String requestedMemberId = queryParams.getFirst("memberId");
                 if (user.memberId() == null
                         || requestedMemberId == null
                         || !String.valueOf(user.memberId()).equals(requestedMemberId.trim())) {
-                    return "Üyeler yalnızca kendi memberId'leri (" + user.memberId() + ") adına kitap ödünç alabilir!";
+                    String action = HttpMethod.POST.equals(method)
+                            ? "adına kitap ödünç alabilir"
+                            : "ait ödünç kayıtlarını görüntüleyebilir";
+                    return "Üyeler yalnızca kendi memberId'leri (" + user.memberId() + ") " + action + "!";
                 }
             }
             return null;

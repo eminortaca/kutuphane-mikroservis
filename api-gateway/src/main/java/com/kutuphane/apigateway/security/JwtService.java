@@ -2,6 +2,7 @@ package com.kutuphane.apigateway.security;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import javax.crypto.Mac;
@@ -60,7 +61,6 @@ public class JwtService {
         return signingInput + "." + encodedSignature;
     }
 
-    @SuppressWarnings("unchecked")
     public JwtUser parseAndValidate(String token) {
         if (token == null || token.isBlank()) {
             throw new InvalidTokenException("Token bulunamadı!");
@@ -87,7 +87,7 @@ public class JwtService {
         Map<String, Object> claims;
         try {
             byte[] payloadBytes = Base64.getUrlDecoder().decode(parts[1]);
-            claims = objectMapper.readValue(payloadBytes, Map.class);
+            claims = objectMapper.readValue(payloadBytes, new TypeReference<Map<String, Object>>() {});
         } catch (Exception ex) {
             throw new InvalidTokenException("Token içeriği okunamadı!");
         }

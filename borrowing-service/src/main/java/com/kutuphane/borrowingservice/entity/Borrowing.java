@@ -8,7 +8,7 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "borrowings")
 @Getter @Setter
-@NoArgsConstructor @AllArgsConstructor
+@NoArgsConstructor
 public class Borrowing {
 
     @Id

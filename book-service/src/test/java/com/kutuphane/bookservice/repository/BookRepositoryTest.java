@@ -57,6 +57,6 @@ class BookRepositoryTest {
         Page<Book> result = bookRepository.searchBooks("suç", null, "roman", PageRequest.of(0, 10));
 
         assertEquals(1, result.getTotalElements());
-        assertEquals("Suç ve Ceza", result.getContent().get(0).getTitle());
+        assertEquals("Suç ve Ceza", result.getContent().getFirst().getTitle());
     }
 }

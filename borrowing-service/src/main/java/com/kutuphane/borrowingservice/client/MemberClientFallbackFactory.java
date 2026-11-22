@@ -15,11 +15,8 @@ public class MemberClientFallbackFactory implements FallbackFactory<MemberClient
 
     @Override
     public MemberClient create(Throwable cause) {
-        return new MemberClient() {
-            @Override
-            public MemberDto getMemberById(Long id) {
-                throw toException(cause, id);
-            }
+        return id -> {
+            throw toException(cause, id);
         };
     }
 

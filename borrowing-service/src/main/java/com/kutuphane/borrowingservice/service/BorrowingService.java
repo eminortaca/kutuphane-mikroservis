@@ -7,6 +7,7 @@ import com.kutuphane.borrowingservice.dto.MemberDto;
 import com.kutuphane.borrowingservice.entity.Borrowing;
 import com.kutuphane.borrowingservice.entity.BorrowingStatus;
 import com.kutuphane.borrowingservice.exception.BookAlreadyReturnedException;
+import com.kutuphane.borrowingservice.exception.BorrowingAccessDeniedException;
 import com.kutuphane.borrowingservice.exception.BorrowingFailedException;
 import com.kutuphane.borrowingservice.exception.BorrowingNotFoundException;
 import com.kutuphane.borrowingservice.exception.BorrowingRuleViolationException;
@@ -14,6 +15,7 @@ import com.kutuphane.borrowingservice.repository.BorrowingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -67,7 +69,7 @@ public class BorrowingService {
         int days = (durationDays != null) ? durationDays : defaultDurationDays;
         LocalDate borrowDate = LocalDate.now();
         LocalDate dueDate = borrowDate.plusDays(days);
-        boolean isAlreadyOverdue = LocalDate.now().isAfter(dueDate);
+        boolean isAlreadyOverdue = borrowDate.isAfter(dueDate);
 
         Borrowing borrowing = new Borrowing();
         borrowing.setBookId(book.getId());
@@ -78,7 +80,7 @@ public class BorrowingService {
         borrowing.setDueDate(dueDate);
         borrowing.setReturnDate(null);
         borrowing.setRenewCount(0);
-        borrowing.setLateFee(isAlreadyOverdue ? calculateLateFee(dueDate, LocalDate.now()) : 0.0);
+        borrowing.setLateFee(isAlreadyOverdue ? calculateLateFee(dueDate, borrowDate) : 0.0);
         borrowing.setStatus(isAlreadyOverdue ? BorrowingStatus.OVERDUE : BorrowingStatus.BORROWED);
 
         try {
@@ -93,9 +95,14 @@ public class BorrowingService {
 
     // Ödünç süresini uzatma (max 1 kez)
     public Borrowing renewBorrowing(Long borrowingId) {
+        return renewBorrowing(borrowingId, null, null);
+    }
+
+    public Borrowing renewBorrowing(Long borrowingId, String authRole, Long authMemberId) {
         markOverdueBorrowings();
 
         Borrowing borrowing = findBorrowingOrThrow(borrowingId);
+        validateOwnership(borrowing, authRole, authMemberId);
 
         if (borrowing.getStatus() == BorrowingStatus.RETURNED) {
             throw new BookAlreadyReturnedException(borrowingId);
@@ -118,7 +125,12 @@ public class BorrowingService {
 
     // Kitap iade etme işlemi
     public Borrowing returnBook(Long borrowingId) {
+        return returnBook(borrowingId, null, null);
+    }
+
+    public Borrowing returnBook(Long borrowingId, String authRole, Long authMemberId) {
         Borrowing borrowing = findBorrowingOrThrow(borrowingId);
+        validateOwnership(borrowing, authRole, authMemberId);
 
         if (borrowing.getStatus() == BorrowingStatus.RETURNED) {
             throw new BookAlreadyReturnedException(borrowingId);
@@ -134,6 +146,12 @@ public class BorrowingService {
 
         try {
             return borrowingRepository.save(borrowing);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            // TELAFİ: Stok artırıldı ama eşzamanlı iade çakıştı -> artırılan stoğu geri düşür ve 409 fırlat
+            log.error("Eşzamanlı iade çakışması, stok tekrar düşürülüyor. borrowingId={}, bookId={}",
+                    borrowingId, borrowing.getBookId(), ex);
+            compensateDecreaseStock(borrowing.getBookId());
+            throw ex;
         } catch (Exception ex) {
             // TELAFİ: Stok artırıldı ama iade kaydı güncellenemedi -> artırılan stoğu geri düşür
             log.error("İade kaydı güncellenemedi, stok tekrar düşürülüyor. borrowingId={}, bookId={}",
@@ -151,8 +169,21 @@ public class BorrowingService {
 
     // ID'ye göre ödünç kaydı getir (yoksa 404)
     public Borrowing getBorrowingById(Long borrowingId) {
+        return getBorrowingById(borrowingId, null, null);
+    }
+
+    public Borrowing getBorrowingById(Long borrowingId, String authRole, Long authMemberId) {
         markOverdueBorrowings();
-        return findBorrowingOrThrow(borrowingId);
+        Borrowing borrowing = findBorrowingOrThrow(borrowingId);
+        validateOwnership(borrowing, authRole, authMemberId);
+        return borrowing;
+    }
+
+    private void validateOwnership(Borrowing borrowing, String authRole, Long authMemberId) {
+        if ("MEMBER".equalsIgnoreCase(authRole)
+                && (authMemberId == null || !authMemberId.equals(borrowing.getMemberId()))) {
+            throw new BorrowingAccessDeniedException("Bu ödünç kaydına erişim yetkiniz yok!");
+        }
     }
 
     // Periyodik olarak (dakikada bir) teslim tarihi geçmiş kayıtları OVERDUE olarak işaretler

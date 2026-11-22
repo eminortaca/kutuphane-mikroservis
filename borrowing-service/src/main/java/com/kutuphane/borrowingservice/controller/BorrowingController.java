@@ -40,14 +40,20 @@ public class BorrowingController {
 
     // 2. Kitap iade et
     @PutMapping("/{id}/return")
-    public BorrowingResponse returnBook(@PathVariable Long id) {
-        return BorrowingResponse.from(borrowingService.returnBook(id));
+    public BorrowingResponse returnBook(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Auth-Role", required = false) String authRole,
+            @RequestHeader(value = "X-Auth-Member-Id", required = false) Long authMemberId) {
+        return BorrowingResponse.from(borrowingService.returnBook(id, authRole, authMemberId));
     }
 
     // 3. Ödünç süresini uzat (max 1 kez)
     @PutMapping("/{id}/renew")
-    public BorrowingResponse renewBorrowing(@PathVariable Long id) {
-        return BorrowingResponse.from(borrowingService.renewBorrowing(id));
+    public BorrowingResponse renewBorrowing(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Auth-Role", required = false) String authRole,
+            @RequestHeader(value = "X-Auth-Member-Id", required = false) Long authMemberId) {
+        return BorrowingResponse.from(borrowingService.renewBorrowing(id, authRole, authMemberId));
     }
 
     // 4. Ödünç kayıtlarını listele / filtrele (?status=&memberId=)
@@ -62,7 +68,10 @@ public class BorrowingController {
 
     // 5. ID'ye göre ödünç kaydı getir
     @GetMapping("/{id}")
-    public BorrowingResponse getBorrowingById(@PathVariable Long id) {
-        return BorrowingResponse.from(borrowingService.getBorrowingById(id));
+    public BorrowingResponse getBorrowingById(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Auth-Role", required = false) String authRole,
+            @RequestHeader(value = "X-Auth-Member-Id", required = false) Long authMemberId) {
+        return BorrowingResponse.from(borrowingService.getBorrowingById(id, authRole, authMemberId));
     }
 }

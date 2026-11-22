@@ -12,8 +12,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-
 // Kitaplarla ilgili tüm iş mantığı burada toplanır; Controller sadece HTTP isteklerini karşılar.
 @Service
 @RequiredArgsConstructor
@@ -44,12 +42,7 @@ public class BookService {
         return bookRepository.save(book);
     }
 
-    // 2. Tüm kitapları listele
-    public List<Book> getAllBooks() {
-        return bookRepository.findAll();
-    }
-
-    // 3. Kitapları filtrele ve sayfalı getir
+    // 2. Kitapları filtrele ve sayfalı getir
     public Page<Book> searchBooks(String title, String author, String category, int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.min(Math.max(1, size), 100);
@@ -122,8 +115,10 @@ public class BookService {
 
     // 8. Stoğu 1 artır (İade veya telafi işlemi için)
     public Book increaseStock(Long id) {
-        getBookById(id); // Kitap yoksa 404
-        bookRepository.increaseStock(id);
+        int updatedRows = bookRepository.increaseStock(id);
+        if (updatedRows == 0) {
+            throw new BookNotFoundException(id);
+        }
         return getBookById(id);
     }
 

@@ -6,6 +6,7 @@ import com.kutuphane.borrowingservice.dto.BookDto;
 import com.kutuphane.borrowingservice.dto.MemberDto;
 import com.kutuphane.borrowingservice.entity.Borrowing;
 import com.kutuphane.borrowingservice.entity.BorrowingStatus;
+import com.kutuphane.borrowingservice.exception.BorrowingAccessDeniedException;
 import com.kutuphane.borrowingservice.exception.BorrowingFailedException;
 import com.kutuphane.borrowingservice.exception.BorrowingRuleViolationException;
 import com.kutuphane.borrowingservice.repository.BorrowingRepository;
@@ -186,5 +187,28 @@ class BorrowingServiceTest {
         assertEquals(LocalDate.now(), returned.getReturnDate());
         assertEquals(15.0, returned.getLateFee());
         verify(bookClient).increaseStock(10L);
+    }
+
+    @Test
+    void returnBook_whenMemberDoesNotOwnBorrowing_shouldThrowAccessDeniedAndNotTouchStock() {
+        Borrowing existing = new Borrowing(1L, 10L, "Suç ve Ceza", 1L, "Ahmet",
+                LocalDate.now().minusDays(2), LocalDate.now().plusDays(12), null, 0, 0.0, BorrowingStatus.BORROWED);
+        when(borrowingRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        assertThrows(BorrowingAccessDeniedException.class,
+                () -> borrowingService.returnBook(1L, "MEMBER", 2L));
+
+        verify(bookClient, never()).increaseStock(anyLong());
+        verify(borrowingRepository, never()).save(any());
+    }
+
+    @Test
+    void getBorrowingById_whenMemberDoesNotOwnBorrowing_shouldThrowAccessDenied() {
+        Borrowing existing = new Borrowing(1L, 10L, "Suç ve Ceza", 1L, "Ahmet",
+                LocalDate.now().minusDays(2), LocalDate.now().plusDays(12), null, 0, 0.0, BorrowingStatus.BORROWED);
+        when(borrowingRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        assertThrows(BorrowingAccessDeniedException.class,
+                () -> borrowingService.getBorrowingById(1L, "MEMBER", 2L));
     }
 }

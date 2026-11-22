@@ -4,11 +4,13 @@ import com.kutuphane.borrowingservice.entity.Borrowing;
 import com.kutuphane.borrowingservice.entity.BorrowingStatus;
 import com.kutuphane.borrowingservice.exception.BookAlreadyReturnedException;
 import com.kutuphane.borrowingservice.exception.BookServiceUnavailableException;
+import com.kutuphane.borrowingservice.exception.BorrowingAccessDeniedException;
 import com.kutuphane.borrowingservice.exception.BorrowingRuleViolationException;
 import com.kutuphane.borrowingservice.service.BorrowingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -72,11 +74,36 @@ class BorrowingControllerTest {
 
     @Test
     void returnBook_whenAlreadyReturned_shouldReturn409() throws Exception {
-        when(borrowingService.returnBook(1L)).thenThrow(new BookAlreadyReturnedException(1L));
+        when(borrowingService.returnBook(1L, null, null)).thenThrow(new BookAlreadyReturnedException(1L));
 
         mockMvc.perform(put("/api/borrowings/1/return"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.message").value("Bu kitap zaten iade edilmiş! Ödünç ID: 1"));
+    }
+
+    @Test
+    void returnBook_whenMemberTriesAnotherMembersBorrowing_shouldReturn403() throws Exception {
+        when(borrowingService.returnBook(1L, "MEMBER", 2L))
+                .thenThrow(new BorrowingAccessDeniedException("Bu ödünç kaydına erişim yetkiniz yok!"));
+
+        mockMvc.perform(put("/api/borrowings/1/return")
+                        .header("X-Auth-Role", "MEMBER")
+                        .header("X-Auth-Member-Id", "2"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.error").value("Forbidden"))
+                .andExpect(jsonPath("$.message").value("Bu ödünç kaydına erişim yetkiniz yok!"));
+    }
+
+    @Test
+    void renewBorrowing_whenOptimisticLockConflict_shouldReturn409() throws Exception {
+        when(borrowingService.renewBorrowing(1L, null, null))
+                .thenThrow(new ObjectOptimisticLockingFailureException(Borrowing.class, 1L));
+
+        mockMvc.perform(put("/api/borrowings/1/renew"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"));
     }
 }

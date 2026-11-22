@@ -5,6 +5,7 @@ import jakarta.validation.ConstraintViolationException;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -51,6 +52,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BorrowingRuleViolationException.class)
     public ResponseEntity<ErrorResponse> handleRuleViolation(BorrowingRuleViolationException ex) {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    // Başka üyenin ödünç kaydına erişim denemesi -> 403
+    @ExceptionHandler(BorrowingAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(BorrowingAccessDeniedException ex) {
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    // Eşzamanlı güncelleme çakışması (@Version) -> 409
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLockConflict(ObjectOptimisticLockingFailureException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Bu kayıt eşzamanlı bir işlemle güncellendi, lütfen tekrar deneyin.");
     }
 
     // Geçersiz istek parametresi kombinasyonu -> 400

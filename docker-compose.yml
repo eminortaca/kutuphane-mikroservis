@@ -44,3 +44,11 @@ services:
       - EUREKA_URI=http://discovery-server:8761/eureka/
     depends_on:
       - discovery-server
+
+  frontend:
+    build: ./frontend
+    container_name: kutuphane-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
